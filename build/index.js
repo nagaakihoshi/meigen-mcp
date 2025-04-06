@@ -1,66 +1,46 @@
-import { MCP } from '@modelcontextprotocol/sdk';
-import http from 'http';
-import axios from 'axios';
-const port = process.env.PORT || 3000;
-// 名言APIのエンドポイント
-const MEIGEN_API_URL = 'https://meigen.doodlenote.net/api/json.php';
-// MCPの初期化
-const mcp = new MCP({
-    name: 'meigen-mcp',
-    version: '1.0.0',
-    description: '名言を取得するMCPサーバー',
-});
-// 名言を取得する関数
-async function getMeigen() {
-    try {
-        const response = await axios.get(MEIGEN_API_URL);
-        return response.data;
-    }
-    catch (error) {
-        console.error('名言の取得に失敗しました:', error);
-        throw error;
-    }
-}
-// MCPのエンドポイントを設定
-mcp.addEndpoint({
-    name: 'get-meigen',
-    description: '名言を取得します',
-    handler: async () => {
-        const meigen = await getMeigen();
-        return {
-            success: true,
-            data: meigen,
-        };
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { z } from "zod";
+const MEIGEN_API_BASE = "https://meigen.doodlenote.net/api/json.php";
+// Create server instance
+const server = new McpServer({
+    name: "meigen-mcp",
+    version: "1.0.0",
+    capabilities: {
+        resources: {},
+        tools: {},
     },
 });
-// HTTPサーバーの作成
-const server = http.createServer(async (req, res) => {
-    if (req.url === '/get-meigen' && req.method === 'GET') {
-        try {
-            const meigen = await getMeigen();
-            res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({
-                success: true,
-                data: meigen,
-            }));
-        }
-        catch (error) {
-            res.writeHead(500, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({
-                success: false,
-                error: '名言の取得に失敗しました',
-            }));
-        }
+// Register meigen tools
+server.tool("get-meigen", "Get meigen", { count: z.number().min(1).max(10).default(1).describe("Number of meigen to get") }, async ({ count }) => {
+    const response = await fetch(`${MEIGEN_API_BASE}?c=${count}`);
+    const meigenData = await response.json();
+    if (!meigenData) {
+        return {
+            content: [
+                {
+                    type: "text",
+                    text: "Failed to retrieve meigen data",
+                },
+            ],
+        };
     }
-    else {
-        res.writeHead(404, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({
-            success: false,
-            error: 'Not Found',
-        }));
-    }
+    const meigenArray = meigenData.map((meigen) => {
+        return {
+            type: "text",
+            text: meigen.meigen + " by " + meigen.auther,
+        };
+    });
+    return {
+        content: meigenArray,
+    };
 });
-// サーバーの起動
-server.listen(port, () => {
-    console.log(`MCPサーバーがポート ${port} で起動しました`);
+async function main() {
+    const transport = new StdioServerTransport();
+    await server.connect(transport);
+    console.error("Meigen MCP Server running on stdio");
+}
+main().catch((error) => {
+    console.error("Fatal error in main():", error);
+    process.exit(1);
 });

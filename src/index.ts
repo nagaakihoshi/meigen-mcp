@@ -34,14 +34,15 @@ server.tool(
             };
         }
 
+        const meigenArray = meigenData.map((meigen: { meigen: string, auther: string }) => {
+            return {
+                type: "text",
+                text: meigen.meigen + " by " + meigen.auther,
+            };
+        });
+
         return {
-            content: [
-                {
-                    type: "text",
-                    // autherは、apiがtypoしてるので、しょうがなくそのまま
-                    text: meigenData.meigen + " by" + meigenData.auther,
-                },
-            ],
+            content: meigenArray,
         };
     },
 );
