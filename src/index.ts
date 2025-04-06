@@ -38,6 +38,7 @@ server.tool(
             content: [
                 {
                     type: "text",
+                    // autherは、apiがtypoしてるので、しょうがなくそのまま
                     text: meigenData.meigen + " by" + meigenData.auther,
                 },
             ],
